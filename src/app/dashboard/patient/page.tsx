@@ -26,6 +26,7 @@ import {
   ArrowUpRight,
   Activity,
   Loader2,
+  Wallet,
 } from 'lucide-react';
 import { KpiSkeleton } from '@/components/ui/KpiSkeleton';
 import { DashboardSkeleton } from '@/components/ui/DashboardSkeleton';
@@ -570,6 +571,29 @@ export default function PatientDashboard() {
           <h2 className="text-sm font-semibold text-text-1">Emergency Recovery Backup</h2>
           <p className="text-xs text-text-3 mt-0.5 mb-4">Optional · stays on your device</p>
           <RecoveryBackupWizard account={publicKey} />
+        </div>
+      )}
+
+      {/* ── Change wallet (account merge) ──────────────────────────── */}
+      {publicKey && (
+        <div
+          className="rounded-[14px] p-5 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          style={{ background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <div>
+            <h2 className="text-sm font-semibold text-text-1">Changing wallet?</h2>
+            <p className="text-xs text-text-3 mt-0.5">
+              Move your remaining XLM and assets to a new wallet, reassign your on-chain record
+              pointers and close the old account safely.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/patient/merge"
+            className="btn-primary rounded-[9px] text-xs py-2 px-3.5 shrink-0"
+          >
+            <Wallet className="w-3.5 h-3.5" />
+            Start account merge
+          </Link>
         </div>
       )}
 
