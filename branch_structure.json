@@ -1,0 +1,18 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "feat/issue-41-feat-crypto-zero-knowledge-proof-of-vaccination",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "feat/issue-41-feat-crypto-zero-knowledge-proof-of-vaccination": "main",
+    "main": null,
+    "origin": "main"
+  },
+  "order": [
+    "main",
+    "feat/issue-41-feat-crypto-zero-knowledge-proof-of-vaccination",
+    "origin"
+  ]
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import type { MedicalRecord, ClinicalNoteAmendment } from '@/types';
 import RecordIpfsStatus from './RecordIpfsStatus';
 import DicomViewer from './DicomViewer';
@@ -17,8 +18,19 @@ import {
   ChevronRight,
   Sparkles,
   Trash2,
+  Languages,
+  Globe,
+  Lock,
+  AlertTriangle,
 } from 'lucide-react';
 import RecordDeletionModal from './RecordDeletionModal';
+import { SUPPORTED_LANGUAGES, MANDATORY_TRANSLATION_WATERMARK, translateMedicalRecord } from '@/lib/translation';
+import type { SupportedLanguage } from '@/lib/translation';
+
+const VaccinationProofPanel = dynamic(() => import('./VaccinationProofPanel'), {
+  ssr: false,
+  loading: () => null,
+});
 
 
 interface Props {
@@ -84,6 +96,7 @@ export default function RecordDetailDrawer({ record, onClose }: Props) {
   const [amendments, setAmendments] = useState<ClinicalNoteAmendment[]>([]);
   const [showAmendmentForm, setShowAmendmentForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showVaccinationProof, setShowVaccinationProof] = useState(false);
 
   // Form state for creating a new amendment
   const [amendField, setAmendField] = useState<'notes' | 'diagnosis' | 'prescription' | 'addendum'>('notes');
@@ -310,6 +323,15 @@ export default function RecordDetailDrawer({ record, onClose }: Props) {
                 )}
               </dl>
               <RecordIpfsStatus recordId={record.id} />
+
+              <button
+                type="button"
+                onClick={() => setShowVaccinationProof(true)}
+                className="w-full rounded-lg border border-emerald-300 bg-emerald-50 py-2.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                Generate Zero-Knowledge Vaccination Proof
+              </button>
 
               {record.dicomUrl && (
                 <section className="mt-4">
@@ -800,6 +822,13 @@ export default function RecordDetailDrawer({ record, onClose }: Props) {
           onClose();
         }}
       />
+
+      {showVaccinationProof && (
+        <VaccinationProofPanel
+          record={record}
+          onClose={() => setShowVaccinationProof(false)}
+        />
+      )}
     </div>
   );
 }
