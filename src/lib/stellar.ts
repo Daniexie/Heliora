@@ -11,23 +11,22 @@ interface EndpointHealth {
   isHealthy: boolean;
 }
 
-const TESTNET_ENDPOINTS = [
+const TESTNET_ENDPOINTS: [string, ...string[]] = [
   'https://horizon-testnet.stellar.org',
   'https://testnet.stellar.lobstr.co',
   'https://stellar-testnet.blockdaemon.com',
 ];
 
-const MAINNET_ENDPOINTS = [
+const MAINNET_ENDPOINTS: [string, ...string[]] = [
   'https://horizon.stellar.org',
   'https://stellar-mainnet.blockdaemon.com',
   'https://mainnet.stellar.lobstr.co',
 ];
 
-const HEALTH_CHECK_INTERVAL = 30000;
 const LATENCY_THRESHOLD_MS = 2500;
 const MAX_FAILURES = 3;
 
-let endpointHealth: Map<string, EndpointHealth> = new Map();
+const endpointHealth: Map<string, EndpointHealth> = new Map();
 
 /**
  * Global Stellar configuration for the application.
@@ -52,12 +51,13 @@ export const STELLAR_CONFIG = {
   passphrase: isMainnet ? Networks.PUBLIC : Networks.TESTNET,
   // SDF hosts a public Soroban RPC for testnet only; mainnet needs a provider URL.
   sorobanRpcUrl:
-    process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || (isMainnet ? '' : 'https://soroban-testnet.stellar.org'),
+    process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ||
+    (isMainnet ? '' : 'https://soroban-testnet.stellar.org'),
 };
 
 function initializeEndpointHealth() {
   if (endpointHealth.size === 0) {
-    STELLAR_CONFIG.endpoints.forEach(url => {
+    STELLAR_CONFIG.endpoints.forEach((url) => {
       endpointHealth.set(url, {
         url,
         lastLatency: null,
@@ -69,7 +69,11 @@ function initializeEndpointHealth() {
   }
 }
 
-async function checkEndpointHealth(url: string): Promise<number> {
+/**
+ * Pings a Horizon endpoint and records its latency and failure count so that
+ * `getHealthyEndpoint` can prefer the fastest reachable server.
+ */
+export async function checkEndpointHealth(url: string): Promise<number> {
   const startTime = performance.now();
   try {
     const response = await fetch(`${url}/health`, {
@@ -104,16 +108,15 @@ export function getHealthyEndpoint(): string {
   initializeEndpointHealth();
 
   const healthyEndpoints = Array.from(endpointHealth.values())
-    .filter(h => h.isHealthy)
+    .filter((h) => h.isHealthy)
     .sort((a, b) => {
       const aLatency = a.lastLatency ?? LATENCY_THRESHOLD_MS;
       const bLatency = b.lastLatency ?? LATENCY_THRESHOLD_MS;
       return aLatency - bLatency;
     });
 
-  return healthyEndpoints.length > 0
-    ? healthyEndpoints[0].url
-    : STELLAR_CONFIG.endpoints[0];
+  const healthiest = healthyEndpoints[0];
+  return healthiest ? healthiest.url : STELLAR_CONFIG.endpoints[0];
 }
 
 export function resetEndpointFailure(url: string) {
@@ -125,7 +128,10 @@ export function resetEndpointFailure(url: string) {
 }
 
 export class HorizonRequestError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  constructor(
+    message: string,
+    public readonly cause?: unknown,
+  ) {
     super(message);
     this.name = 'HorizonRequestError';
   }
@@ -144,7 +150,7 @@ export async function callHorizonWithFallback<T>(fn: (url: string) => Promise<T>
       const bLatency = b.lastLatency ?? LATENCY_THRESHOLD_MS;
       return aLatency - bLatency;
     })
-    .map(h => h.url);
+    .map((h) => h.url);
 
   let lastError: unknown;
 
@@ -175,11 +181,17 @@ export async function callHorizon<T>(fn: () => Promise<T>): Promise<T> {
     return await callHorizonWithFallback(() => fn());
   } catch (err: unknown) {
     if (err instanceof TypeError) {
-      throw new HorizonRequestError('Unable to reach the Stellar network. Check your connection and try again.', err);
+      throw new HorizonRequestError(
+        'Unable to reach the Stellar network. Check your connection and try again.',
+        err,
+      );
     }
     const status = (err as { response?: { status?: number } })?.response?.status;
     if (status === 429) {
-      throw new HorizonRequestError('Stellar network rate limit reached. Please try again shortly.', err);
+      throw new HorizonRequestError(
+        'Stellar network rate limit reached. Please try again shortly.',
+        err,
+      );
     }
     if (status && status >= 500) {
       throw new HorizonRequestError('Stellar Horizon service is temporarily unavailable.', err);
@@ -196,16 +208,19 @@ export function useHorizonCall() {
   const { toast } = useToast();
 
   return useCallback(
-    async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
+    async <T>(fn: () => Promise<T>): Promise<T | undefined> => {
       try {
         return await callHorizon(fn);
       } catch (err) {
-        const message = err instanceof HorizonRequestError ? err.message : 'Failed to communicate with the Stellar network.';
+        const message =
+          err instanceof HorizonRequestError
+            ? err.message
+            : 'Failed to communicate with the Stellar network.';
         toast(message, 'error');
         return undefined;
       }
     },
-    [toast]
+    [toast],
   );
 }
 
@@ -220,7 +235,11 @@ export type TransactionSigner = (
  * {@link TransactionSigner} backed by the Freighter extension through the official
  * `@stellar/freighter-api` (v6: resolves to `{ signedTxXdr, signerAddress, error? }`).
  */
-export const freighterSigner: TransactionSigner = async (envelopeXdr, networkPassphrase, address) => {
+export const freighterSigner: TransactionSigner = async (
+  envelopeXdr,
+  networkPassphrase,
+  address,
+) => {
   const { signedTxXdr, signerAddress, error } = await signTransaction(envelopeXdr, {
     networkPassphrase,
     address,
@@ -244,7 +263,8 @@ export async function invokeSorobanContract(
   operation: xdr.Operation,
   sign: TransactionSigner,
 ): Promise<string> {
-  if (!STELLAR_CONFIG.sorobanRpcUrl) throw new Error('NEXT_PUBLIC_SOROBAN_RPC_URL is not configured.');
+  if (!STELLAR_CONFIG.sorobanRpcUrl)
+    throw new Error('NEXT_PUBLIC_SOROBAN_RPC_URL is not configured.');
   const server = new rpc.Server(STELLAR_CONFIG.sorobanRpcUrl);
   const tx = new TransactionBuilder(await server.getAccount(source), {
     fee: BASE_FEE,
@@ -256,7 +276,9 @@ export async function invokeSorobanContract(
 
   const prepared = await server.prepareTransaction(tx);
   const signedXdr = await sign(prepared.toXDR(), STELLAR_CONFIG.passphrase, source);
-  const sent = await server.sendTransaction(TransactionBuilder.fromXDR(signedXdr, STELLAR_CONFIG.passphrase));
+  const sent = await server.sendTransaction(
+    TransactionBuilder.fromXDR(signedXdr, STELLAR_CONFIG.passphrase),
+  );
   if (sent.status !== 'PENDING' && sent.status !== 'DUPLICATE') {
     throw new Error(`Soroban transaction was not accepted (${sent.status}).`);
   }
